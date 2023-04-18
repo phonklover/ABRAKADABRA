@@ -1,0 +1,956 @@
+using System.Globalization; // Kultur- und Sprachunterstützung
+using System.Diagnostics; // Debugging- und Tracing-Unterstützung
+using System.Text.RegularExpressions; // Reguläre Ausdrücke
+using iText.Kernel.Pdf; // PDF Unterstützung
+using iText.Layout; // Textlayouts
+using iText.Layout.Element; // PDF Layout  Elemente 
+using iText.Layout.Properties; // Layout Properties
+using iText.IO.Font.Constants; // Standardschriftarten
+using iText.IO.Image; // Bildverarbeitung
+using iText.Kernel.Font; // Schriftarten
+
+class Person
+{
+    public string? Vorname { get; set; }
+    public string? Nachname { get; set; }
+    public DateTime Geburtsdatum { get; set; }
+    public int Schulstufe { get; set; }
+}
+
+class Fach
+{
+    public string Name { get; set; }
+    public int Note { get; set; }
+
+    public Fach(string name)
+    {
+        Name = name;
+        Note = 0;
+    }
+}
+
+
+class Zeugnis
+{
+    public Person Schueler { get; set; }
+    public Dictionary<string, int> Noten { get; set; }
+    public DateTime Ausstellungsdatum { get; set; }
+    public bool Bestanden { get; set; }
+    public int Schulstufe { get; set; }
+
+
+
+    public Zeugnis()
+    {
+        Schueler = new Person();
+        Noten = new Dictionary<string, int>();
+    }
+}
+
+class Programm
+{
+    static List<Zeugnis> zeugnisListe = new List<Zeugnis>();
+    static List<Fach> fachListe = new List<Fach>();
+
+    static void Main(string[] args)
+    {
+        bool beenden = false;
+        int count = 0; // Counter für die Anzahl der Tastenanschläge auf "5"
+
+        while (!beenden)
+        {
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+            WriteLineWithColor("Hauptmenü", ConsoleColor.Yellow);
+            Console.WriteLine();
+            WriteLineWithColor("1. Eingaben \n2. Einstellungen \n3. Ausgaben \n4. Beenden", ConsoleColor.Green);
+            Console.WriteLine();
+
+            if (count >= 5) // Wenn der Benutzer 5 Mal auf "5" gedrückt hat
+            {
+                FrageBeantworten();
+                count = 0; // Zurücksetzen des Zählers
+                continue;
+            }
+
+            WriteWithColor("Wählen Sie eine Option: ", ConsoleColor.Magenta);
+            WriteWithColor("", ConsoleColor.Red);
+            Console.ForegroundColor = ConsoleColor.Red;
+            string? auswahl = Console.ReadLine();
+            Console.ResetColor();
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+
+            switch (auswahl)
+            {
+                case "1":
+                    Eingaben();
+                    break;
+                case "2":
+                    Einstellungen();
+                    break;
+                case "3":
+                    AnzeigenSchuelerListe();
+                    Console.WriteLine();
+                    WriteWithColor("Bitte geben Sie den Index des Zeugnisses ein, das Sie ausgeben möchten: ", ConsoleColor.Magenta);
+                    WriteWithColor("", ConsoleColor.Red);
+                    int index;
+                    if (!int.TryParse(Console.ReadLine(), out index) || index < 1 || index > zeugnisListe.Count)
+                    {
+                        Console.ResetColor();
+                        Console.WriteLine();
+                        Console.WriteLine("Ungültiger Index. Bitte versuchen Sie es erneut.");
+                        Console.WriteLine();
+                        break;
+                    }
+                    Console.ResetColor();
+                    ErstellePDF(index - 1);
+                    break;
+                case "4":
+                    beenden = true;
+                    break;
+                case "5":
+                    count++;
+                    break;
+                default:
+                    Console.WriteLine("Ungültige Eingabe!");
+                    count = 0; // Zurücksetzen des Zählers
+                    break;
+            }
+        }
+    }
+
+
+    static void FrageBeantworten()
+    {
+        WriteWithColor("Frage: How do we call something that happened in the past and was beautiful?\n", ConsoleColor.Cyan);
+
+        string? antwort = Console.ReadLine();
+
+        if (antwort?.ToLower().Contains("memory") == true || antwort?.ToLower().Contains("memories") == true)
+        {
+            WriteLineWithColor("The best and most beautiful things in the world cannot be seen or even touched, they must be felt with your heart\n", ConsoleColor.Yellow);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://open.spotify.com/track/7DV1oHgUjZh2pdnLoM3G8Q?si=6XtUvhQDTr-L-3usGjhC1w",
+                UseShellExecute = true
+            });
+        }
+        else
+        {
+            WriteLineWithColor("Wrong answer!\n", ConsoleColor.Red);
+        }
+    }
+
+
+
+
+
+
+    static void Eingaben()
+    {
+        while (true)
+        {
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.WriteLine();
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+            WriteLineWithColor("Eingabemenü", ConsoleColor.Yellow);
+            Console.WriteLine();
+            WriteLineWithColor("1. Personendaten \n2. Fächer \n3. Noten \n4. Zurück zum Hauptmenü", ConsoleColor.Green);
+            Console.WriteLine();
+            WriteWithColor("Wählen Sie eine Option: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            string? auswahl = Console.ReadLine();
+            Console.ResetColor();
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+            Console.WriteLine();
+            Console.WriteLine();
+
+            switch (auswahl)
+            {
+                case "1":
+                    EingabePersonendaten();
+                    break;
+                case "2":
+                    if (fachListe.Count == 0)
+                    {
+                        EingabeFaecher();
+                    }
+                    else
+                    {
+                        WriteLineWithColor("Die Fächerliste wurde bereits eingegeben.", ConsoleColor.Red);
+                    }
+                    break;
+                case "3":
+                    EingabeNoten();
+                    break;
+                case "4":
+                    return;
+                default:
+                    WriteLineWithColor("Ungültige Eingabe. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+                    break;
+            }
+        }
+    }
+
+    static void EingabePersonendaten()
+    {
+        Zeugnis zeugnis = new Zeugnis();
+
+
+        string vorname;
+        Regex regexVorname = new Regex("^[a-zA-Z]+$");
+        int versuch = 0;
+
+        do
+        {
+            WriteWithColor("Geben Sie den Vornamen ein: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            vorname = Console.ReadLine() ?? "NO DATA";
+            Console.ResetColor();
+
+            if (!regexVorname.IsMatch(vorname))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine();
+                Console.WriteLine("Der eingegebene Vorname enthält ungültige Zeichen.");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                if (++versuch == 3)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("Willst du wirklich diesen Namen eingeben? (ja/nein)");
+                    Console.ResetColor();
+
+                    ConsoleKeyInfo key = Console.ReadKey();
+                    Console.WriteLine();
+
+                    if (key.KeyChar == 'j' || key.KeyChar == 'J' || key.KeyChar == 'j' || key.KeyChar == 'a')
+                    {
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine("Träum weiter! Jetzt gib mal einen Namen ein!");
+                        Console.ResetColor();
+                        versuch = 0; // Reset Versuche
+                        continue; // Erneut nach Vorname fragen
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("Dachte ich mir! Hier, mach es nochmal und richtig diesmal!");
+                        Console.ResetColor();
+                        versuch = 0; // Reset Versuche
+                        continue; // Erneut nach Vorname fragen
+                    }
+                }
+            }
+
+        } while (!regexVorname.IsMatch(vorname));
+
+        zeugnis.Schueler.Vorname = vorname; // Wenn der Vorname gültig ist wird in Schülerzeugnis gespeichert
+
+        string nachname;
+        Regex regexNachname = new Regex("^[a-zA-Z]+$");
+
+        do
+        {
+            WriteWithColor("Geben Sie den Nachnamen ein: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            nachname = Console.ReadLine() ?? "NO DATA";
+            Console.ResetColor();
+
+            if (!regexNachname.IsMatch(nachname))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine();
+                Console.WriteLine("Der eingegebene Nachname enthält ungültige Zeichen.");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+
+        } while (!regexNachname.IsMatch(nachname));
+
+
+        zeugnis.Schueler.Nachname = nachname;           // Wenn der Nachname gültig ist wird in Schülerzeugnis gespeichert
+
+        WriteWithColor("Geben Sie das Geburtsdatum ein (z.B. 01.01.1999): ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Red;
+        DateTime geburtsdatum;
+        int versuche = 0;
+        const int MAX_VERSUCHE = 5;
+
+        while (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out geburtsdatum))
+        {
+            versuche++;
+            if (versuche == MAX_VERSUCHE)
+            {
+                Console.ResetColor();
+                Console.WriteLine();
+                WriteLineWithColor("Sie haben die maximale Anzahl ungültiger Eingaben erreicht. Bitte machen Sie eine Pause und trinken Sie eine Tasse Kaffee oder Tee, bevor Sie es erneut versuchen.", ConsoleColor.Red);
+                Console.WriteLine();
+                return;
+            }
+            Console.WriteLine();
+            Console.ResetColor();
+            WriteLineWithColor("Ungültiges Geburtsdatum. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+            Console.WriteLine();
+            WriteWithColor("Geben Sie das Geburtsdatum ein (z.B. 01.01.1999): ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+        }
+
+        zeugnis.Schueler.Geburtsdatum = geburtsdatum;
+
+        WriteWithColor("Geben Sie die Schulstufe ein (1-12): ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Red;
+
+        int schulstufe;
+
+        while (!int.TryParse(Console.ReadLine(), out schulstufe))
+        {
+            Console.ResetColor();
+            Console.WriteLine();
+            WriteLineWithColor("Ungültige Schulstufe. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+            Console.WriteLine();
+            WriteWithColor("Geben Sie die Schulstufe ein: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+        }
+
+        zeugnis.Schulstufe = schulstufe;
+
+        foreach (Fach fach in fachListe)
+        {
+            if (fach.Name != null)
+            {
+                zeugnis.Noten.Add(fach.Name, 0);
+            }
+        }
+
+        zeugnisListe.Add(zeugnis);
+    }
+
+
+
+    static void EingabeFaecher()
+    {
+        bool fachEingabe = true;
+        while (fachEingabe)
+        {
+            WriteWithColor("Geben Sie den Fachnamen ein (oder 'x' zum Beenden): ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            string? fachName = Console.ReadLine();
+            Console.ResetColor();
+            if (fachName != null && fachName.ToLower() == "x")
+            {
+                fachEingabe = false;
+                continue;
+            }
+
+            Fach fach = new Fach(fachName ?? "NO DATA");
+            fachListe.Add(fach);
+        }
+    }
+
+
+
+    static void EingabeNoten()
+    {
+        int index;
+        while (true)
+        {
+            AnzeigenSchuelerListe();
+
+            Console.WriteLine();
+            WriteWithColor($"Geben Sie den Index des Schülers ein, für den Sie die Noten eingeben möchten: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+
+            if (!int.TryParse(Console.ReadLine(), out index) || index < 1 || index > zeugnisListe.Count)
+            {
+                Console.ResetColor();
+                Console.WriteLine();
+                WriteLineWithColor("Ungültiger Index. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+                Console.WriteLine();
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        Zeugnis zeugnis = zeugnisListe[index - 1];
+        Console.WriteLine();
+        WriteWithColor($"Geben Sie die Noten für ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.Write($"{zeugnis.Schueler.Vorname} {zeugnis.Schueler.Nachname}");
+        Console.ResetColor();
+        WriteWithColor(" ein", ConsoleColor.Magenta);
+        Console.ResetColor();
+        Console.WriteLine();
+
+        foreach (var fach in fachListe)
+        {
+            int note;
+            do
+            {
+                Console.WriteLine();
+                WriteWithColor($"Note für ", ConsoleColor.Magenta);
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write($"{fach.Name}");
+                Console.ResetColor();
+                Console.Write(": ");
+                Console.ForegroundColor = ConsoleColor.Red;
+                if (!int.TryParse(Console.ReadLine(), out note) || note < minNote || note > maxNote)
+                {
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    WriteLineWithColor("Ungültige Note. Bitte geben Sie eine Note zwischen 1 und 5 ein.", ConsoleColor.Red);
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.ResetColor();
+                    break;
+                }
+            } while (true);
+
+            if (fach.Name != null)
+            {
+                zeugnis.Noten[fach.Name] = note;
+            }
+
+        }
+
+        DateTime ausstellungsdatum;
+
+        do
+        {
+            Console.WriteLine();
+            WriteWithColor("Geben Sie das Ausstellungsdatum des Zeugnisses ein: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+
+            if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out ausstellungsdatum))
+            {
+                zeugnis.Ausstellungsdatum = ausstellungsdatum;
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ResetColor();
+                Console.WriteLine();
+                WriteLineWithColor("Ungültiges Ausstellungsdatum. Bitte geben Sie das Datum im Format TT.MM.JJJJ ein.", ConsoleColor.Red);
+                Console.WriteLine();
+            }
+        } while (ausstellungsdatum == default(DateTime));
+
+        Console.WriteLine();
+        WriteWithColor("Hat der Schüler bestanden? (j/n): ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Red;
+        string? bestandenEingabe = Console.ReadLine();
+        if (bestandenEingabe != null)
+        {
+            bestandenEingabe = bestandenEingabe.ToLower();
+        }
+        zeugnis.Bestanden = bestandenEingabe == "j" || bestandenEingabe == "ja";
+        Console.ResetColor();
+        Console.WriteLine();
+    }
+
+
+
+    static void AnzeigenSchuelerListe()
+    {
+        WriteLineWithColor("\nListe der Schüler:", ConsoleColor.Yellow);
+        Console.WriteLine();
+        for (int i = 0; i < zeugnisListe.Count; i++)
+        {
+            Console.Write("{0}.", i + 1);
+            WriteWithColor($" {zeugnisListe[i].Schueler.Vorname} {zeugnisListe[i].Schueler.Nachname}\n", ConsoleColor.Cyan);
+        }
+    }
+
+
+    const int minNote = 1;
+    const int maxNote = 5;
+
+    static void Einstellungen()
+    {
+        while (true)
+        {
+            Console.WriteLine();
+            Console.WriteLine();
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+            WriteWithColor("", ConsoleColor.White);
+            Console.WriteLine();
+            WriteWithColor("Einstellungsmenü", ConsoleColor.Yellow);
+            Console.WriteLine();
+            Console.WriteLine();
+            WriteWithColor("1. Personendaten ändern\n2. Fächer ändern\n3. Noten ändern\n4. Zurück zum Hauptmenü\n", ConsoleColor.Green);
+            Console.WriteLine();
+            WriteWithColor("Wählen Sie eine Option: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            string? auswahl = Console.ReadLine();
+            Console.ResetColor();
+            WriteLineWithColor("_________________________________________________________________", ConsoleColor.White);
+            Console.WriteLine();
+            Console.WriteLine();
+            switch (auswahl)
+            {
+                case "1":
+                    AenderePersonendaten();
+                    break;
+                case "2":
+                    AendereFaecher();
+                    break;
+                case "3":
+                    AendereNoten();
+                    break;
+                case "4":
+                    return;
+                default:
+                    WriteLineWithColor("Ungültige Eingabe. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+                    break;
+            }
+        }
+    }
+
+    static void AendereFaecher()
+    {
+        while (true)
+        {
+            AnzeigenFachListe();
+            Console.WriteLine();
+            WriteWithColor($"Geben Sie den Index des Fachs ein, das Sie ändern möchten, oder geben Sie 0 ein, um ein neues Fach hinzuzufügen: ", ConsoleColor.Magenta);
+            Console.ForegroundColor = ConsoleColor.Red;
+            int index;
+            if (!int.TryParse(Console.ReadLine(), out index) || index < 0 || index > fachListe.Count)
+            {
+                Console.ResetColor();
+                Console.WriteLine();
+                WriteLineWithColor($"Ungültiger Index. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+                Console.WriteLine();
+            }
+            else if (index == 0)
+            {
+                Console.WriteLine();
+                WriteWithColor($"Geben Sie den Namen des neuen Fachs ein: ", ConsoleColor.Magenta);
+                Console.ForegroundColor = ConsoleColor.Red;
+                string? neuerName = Console.ReadLine();
+                Console.ResetColor();
+                if (neuerName != null && !fachListe.Exists(f => f.Name == neuerName))
+                {
+                    fachListe.Add(new Fach(neuerName));
+                    foreach (var zeugnis in zeugnisListe)
+                    {
+                        zeugnis.Noten.Add(neuerName, 0);
+                    }
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    WriteLineWithColor($"Das Fach \"{neuerName}\" existiert bereits. Bitte geben Sie einen anderen Namen ein.", ConsoleColor.Red);
+                    Console.WriteLine();
+                }
+            }
+            else
+            {
+                Console.WriteLine();
+                WriteWithColor("Geben Sie den neuen Namen für das Fach ", ConsoleColor.Magenta);
+                WriteWithColor(fachListe[index - 1].Name, ConsoleColor.Yellow);
+                WriteWithColor(" ein: ", ConsoleColor.Magenta);
+                Console.ForegroundColor = ConsoleColor.Red;
+                string? neuerName = Console.ReadLine();
+                Console.ResetColor();
+                string? alterName = fachListe[index - 1].Name;
+                fachListe[index - 1].Name = neuerName;
+
+                foreach (var zeugnis in zeugnisListe)
+                {
+                    if (alterName != null && zeugnis.Noten.ContainsKey(alterName))
+                    {
+                        int note = zeugnis.Noten[alterName];
+                        zeugnis.Noten.Remove(alterName);
+                        if (neuerName != null && !zeugnis.Noten.ContainsKey(neuerName))
+                        {
+                            zeugnis.Noten.Add(neuerName, note);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+
+
+
+
+    static void AnzeigenFachListe()
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        WriteLineWithColor("Liste der Fächer", ConsoleColor.Yellow);
+        Console.ResetColor();
+        Console.WriteLine();
+        for (int i = 0; i < fachListe.Count; i++)
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            WriteWithColor($"{i + 1}. ", ConsoleColor.Cyan);
+            Console.Write($"{fachListe[i].Name}\n");
+            Console.ResetColor();
+        }
+    }
+
+    static void WriteWithColor(string message, ConsoleColor color)
+    {
+        Console.ForegroundColor = color;
+        Console.Write(message);
+        Console.ResetColor();
+    }
+
+    static void WriteLineWithColor(string message, ConsoleColor color)
+    {
+        Console.ForegroundColor = color;
+        Console.WriteLine(message);
+        Console.ResetColor();
+    }
+
+    static void AendereNoten()
+    {
+        AnzeigenSchuelerListe();
+
+        Console.WriteLine();
+        WriteWithColor("Geben Sie den Index des Schülers ein, für den Sie die Noten ändern möchten: ", ConsoleColor.Magenta);
+        int index;
+        Console.ForegroundColor = ConsoleColor.Red;
+        if (!int.TryParse(Console.ReadLine(), out index) || index < 1 || index > zeugnisListe.Count)
+        {
+            WriteLineWithColor("Ungültiger Index. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+            return;
+        }
+        Console.WriteLine();
+        Console.ResetColor();
+        Zeugnis zeugnis = zeugnisListe[index - 1];
+
+        WriteWithColor("Geben Sie das Ausstellungsdatum des Zeugnisses ein (TT.MM.JJJJ): ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Red;
+        DateTime ausstellungsdatum;
+
+        while (true)
+        {
+            if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out ausstellungsdatum))
+            {
+                Console.ResetColor();
+                zeugnis.Ausstellungsdatum = ausstellungsdatum;
+                break;
+            }
+            else
+            {
+                Console.ResetColor();
+                Console.WriteLine();
+                WriteLineWithColor("Ungültiges Datum. Bitte geben Sie das Datum im Format TT.MM.JJJJ ein.", ConsoleColor.Red);
+                Console.WriteLine();
+                WriteWithColor("Geben Sie das Ausstellungsdatum des Zeugnisses ein (TT.MM.JJJJ): ", ConsoleColor.Magenta);
+                Console.ForegroundColor = ConsoleColor.Red;
+            }
+        }
+
+        Console.WriteLine();
+
+        foreach (var fach in fachListe)
+        {
+            int note;
+            do
+            {
+                Console.WriteLine();
+                WriteWithColor("Neue Note für ", ConsoleColor.Magenta);
+                WriteWithColor($"{fach.Name}", ConsoleColor.Cyan);
+                WriteWithColor(": ", ConsoleColor.Magenta);
+
+                Console.ForegroundColor = ConsoleColor.Red;
+                if (!int.TryParse(Console.ReadLine(), out note) || note < 1 || note > 5)
+                {
+                    WriteLineWithColor("Ungültige Note. Bitte geben Sie eine Note zwischen 1 und 5 ein.", ConsoleColor.Red);
+                }
+                else
+                {
+                    zeugnis.Noten.Remove(fach.Name);   // Lösche die bestehende Note für dieses Fach
+                    zeugnis.Noten.Add(fach.Name, note);   // Füge die neue Note für dieses Fach hinzu
+                    break;
+                }
+                Console.ResetColor();
+            } while (true);
+        }
+
+        Console.WriteLine();
+
+        WriteWithColor("Hat der Schüler das Schuljahr bestanden? (ja/nein): ", ConsoleColor.Magenta);
+        Console.ForegroundColor = ConsoleColor.Red;
+        string? antwort = Console.ReadLine();
+        if (antwort != null)
+        {
+            antwort = antwort.ToLower();
+        }
+
+        if (antwort.ToLower() == "ja" || antwort.ToLower() == "j")
+        {
+            zeugnis.Bestanden = true;
+        }
+        else if (antwort.ToLower() == "nein")
+        {
+            zeugnis.Bestanden = false;
+        }
+        else
+        {
+            WriteLineWithColor("Ungültige Antwort. Die Bestehensinformation wird nicht aktualisiert.", ConsoleColor.Red);
+        }
+
+        Console.ResetColor();
+        Console.WriteLine();
+        WriteLineWithColor("Die Noten wurden erfolgreich aktualisiert.", ConsoleColor.Green);
+        Console.WriteLine();
+    }
+
+
+
+
+
+    static void AenderePersonendaten()
+    {
+        bool continueLoop = true;
+        while (continueLoop)
+        {
+            AnzeigenSchuelerListe();
+            Console.WriteLine();
+            WriteWithColor("Geben Sie den Index des Schülers ein, für den Sie die Personendaten ändern möchten: ", ConsoleColor.Magenta);
+            int index;
+            Console.ForegroundColor = ConsoleColor.Red;
+            if (!int.TryParse(Console.ReadLine(), out index) || index < 1 || index > zeugnisListe.Count)
+
+            {
+                Console.WriteLine();
+                WriteLineWithColor("Ungültiger Index. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+            }
+            else
+            {
+                Console.WriteLine();
+                Zeugnis zeugnis = zeugnisListe[index - 1];
+                Console.ResetColor();
+
+                string vorname;
+                Regex regexVorname = new Regex("^[a-zA-Z]+$");
+
+                do
+                {
+                    WriteWithColor("Geben Sie den Vornamen ein: ", ConsoleColor.Magenta);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    vorname = Console.ReadLine() ?? "NO DATA";
+                    Console.ResetColor();
+
+                    if (!regexVorname.IsMatch(vorname))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine();
+                        Console.WriteLine("Der eingegebene Vorname enthält ungültige Zeichen.");
+                        Console.ResetColor();
+                        Console.WriteLine();
+                    }
+
+                } while (!regexVorname.IsMatch(vorname));
+
+
+                zeugnis.Schueler.Vorname = vorname;           // Wenn der Nachname gültig ist wird in Schülerzeugnis gespeichert
+
+                string nachname;
+                Regex regexNachname = new Regex("^[a-zA-Z]+$");
+
+                do
+                {
+                    WriteWithColor("Geben Sie den Nachnamen ein: ", ConsoleColor.Magenta);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    nachname = Console.ReadLine() ?? "NO DATA";
+                    Console.ResetColor();
+
+                    if (!regexNachname.IsMatch(nachname))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine();
+                        Console.WriteLine("Der eingegebene Nachname enthält ungültige Zeichen.");
+                        Console.ResetColor();
+                        Console.WriteLine();
+                    }
+
+                } while (!regexNachname.IsMatch(nachname));
+
+
+                zeugnis.Schueler.Nachname = nachname;           // Wenn der Nachname gültig ist wird in Schülerzeugnis gespeichert
+
+
+                WriteWithColor("Geben Sie das neue Geburtsdatum ein (TT.MM.JJJJ): ", ConsoleColor.Magenta);
+                Console.ForegroundColor = ConsoleColor.Red;
+                DateTime geburtsdatum;
+
+                while (true)
+                {
+                    if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out geburtsdatum))
+                    {
+                        Console.ResetColor();
+                        zeugnis.Schueler.Geburtsdatum = geburtsdatum;
+                        continueLoop = false;
+                        break;
+                    }
+                    else
+                    {
+                        Console.ResetColor();
+                        Console.WriteLine();
+                        WriteLineWithColor("Ungültiges Geburtsdatum. Bitte versuchen Sie es erneut.", ConsoleColor.Red);
+                        Console.WriteLine();
+                        WriteWithColor("Geben Sie das neue Geburtsdatum ein (TT.MM.JJJJ): ", ConsoleColor.Magenta);
+                        Console.ForegroundColor = ConsoleColor.Red;
+                    }
+                }
+                Console.ResetColor();
+            }
+        }
+    }
+
+
+
+
+    static string NoteZuText(int note)
+    {
+        switch (note)
+        {
+            case 1:
+                return "sehr gut";
+            case 2:
+                return "gut";
+            case 3:
+                return "befriedigend";
+            case 4:
+                return "genügend";
+            case 5:
+                return "nicht genügend";
+            default:
+                return "ungültige Note";
+        }
+    }
+
+    static void ErstellePDF(int index)
+    {
+        try
+        {
+            Zeugnis zeugnis = zeugnisListe[index];
+            string dateiname = zeugnis.Schueler.Vorname + "_" + zeugnis.Schueler.Nachname + ".pdf";
+
+            PdfDocument pdfDoc = new PdfDocument(new PdfWriter(dateiname));
+            Document document = new Document(pdfDoc);
+
+            document.Add(new Paragraph("\n"));
+
+            // Hintergrundbild einfügen
+            ImageData imageData = ImageDataFactory.Create(@"C:\Users\laurentiu.iordachi\Documents\Allgemein\C#\Bilder\ZeugnisHintergrund\background.jpg");
+            Image bgImage = new Image(imageData);
+
+            // Manuell skalieren, indem die Breite und Höhe der Seite extrahiert werden
+            float pageWidth = document.GetPdfDocument().GetDefaultPageSize().GetWidth();
+            float pageHeight = document.GetPdfDocument().GetDefaultPageSize().GetHeight();
+
+            bgImage.ScaleToFit(pageWidth, pageHeight);
+
+            bgImage.SetFixedPosition((pageWidth - bgImage.GetImageScaledWidth()) / 2, (pageHeight - bgImage.GetImageScaledHeight()) / 2);
+            document.Add(bgImage);
+
+            Paragraph titelParagraph = new Paragraph("Zeugnis").SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(24);
+            document.Add(titelParagraph);
+
+            DateTime ausstellungsDatum = DateTime.Now;
+        Paragraph ausstellungsdatumParagraph = new Paragraph("Ausstellungsdatum: " + ausstellungsDatum.ToString("dd.MM.yyyy")).SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(14);
+        document.Add(ausstellungsdatumParagraph);
+
+        Paragraph schuelerParagraph = new Paragraph("Schüler/in: " + zeugnis.Schueler.Vorname + " " + zeugnis.Schueler.Nachname).SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(18);
+        document.Add(schuelerParagraph);
+
+        Paragraph gebDatumParagraph = new Paragraph("Geburtsdatum: " + zeugnis.Schueler.Geburtsdatum.ToString("dd.MM.yyyy")).SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(14);
+        document.Add(gebDatumParagraph);
+
+        Paragraph schulstufeParagraph = new Paragraph("Schulstufe: " + zeugnis.Schulstufe).SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(14);
+        document.Add(schulstufeParagraph);
+
+        // Sortiere die Fächer alphabetisch
+        var sortedFaecher = zeugnis.Noten.Keys.ToList();
+        sortedFaecher.Sort();
+
+            Table notenTable = new Table(2);
+            notenTable.SetWidth(UnitValue.CreatePercentValue(80));
+            notenTable.SetHorizontalAlignment(HorizontalAlignment.CENTER);
+
+            // Breite der Spalten auf 50% der Tabelle setzen
+            Cell fachCell = new Cell().Add(new Paragraph("Fach").SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(14)).SetPadding(10).SetWidth(UnitValue.CreatePercentValue(50));
+            notenTable.AddHeaderCell(fachCell);
+
+            Cell noteCell = new Cell().Add(new Paragraph("Note").SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(14)).SetPadding(10).SetWidth(UnitValue.CreatePercentValue(50));
+            notenTable.AddHeaderCell(noteCell);
+
+            var notenDict = new Dictionary<string, int>();
+            foreach (var fach in zeugnis.Noten)
+            {
+                if (fach.Value != 0)
+                {
+                    notenDict.Add(fach.Key, fach.Value);
+                }
+            }
+
+            var sortedNoten = notenDict.OrderBy(pair => pair.Key);
+
+            foreach (var fach in sortedNoten)
+            {
+                Cell fachDataCell = new Cell().Add(new Paragraph(fach.Key).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(12)).SetWidth(UnitValue.CreatePercentValue(50));
+                notenTable.AddCell(fachDataCell);
+
+                Cell noteDataCell = new Cell().Add(new Paragraph(fach.Value.ToString() + " (" + NoteZuText(fach.Value) + ")").SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA)).SetFontSize(12)).SetWidth(UnitValue.CreatePercentValue(50));
+                notenTable.AddCell(noteDataCell);
+            }
+
+            document.Add(notenTable);
+
+            document.Add(new Paragraph("\n"));
+
+        bool bestanden = true;
+        foreach (var fach in zeugnis.Noten)
+        {
+            if (fach.Value > 4)
+            {
+                bestanden = false;
+            }
+        }
+
+        if (bestanden)
+        {
+            Paragraph bestandenParagraph = new Paragraph("Schüler/in " + zeugnis.Schueler.Vorname + " " + zeugnis.Schueler.Nachname + " hat die " + zeugnis.Schulstufe + ". Schulstufe bestanden.").SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(14);
+            document.Add(bestandenParagraph);
+        }
+        else
+        {
+            Paragraph bestandenParagraph = new Paragraph("Schüler/in " + zeugnis.Schueler.Vorname + " " + zeugnis.Schueler.Nachname + " hat die " + zeugnis.Schulstufe + ". Schulstufe nicht bestanden.").SetTextAlignment(TextAlignment.CENTER).SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD)).SetFontSize(14);
+            document.Add(bestandenParagraph);
+        }
+
+        document.Close();
+
+        string fileName = zeugnis.Schueler.Vorname + "_" + zeugnis.Schueler.Nachname + ".pdf";
+        Console.WriteLine("PDF-Datei wurde erfolgreich erstellt: " + fileName);
+
+        Process p = new Process();
+        p.StartInfo.UseShellExecute = true;
+        p.StartInfo.FileName = fileName;
+        p.Start(); }
+        
+        catch (Exception ex)
+        {
+            Console.WriteLine();
+            WriteLineWithColor("Fehler beim Erstellen der PDF-Datei: " + ex.Message, ConsoleColor.Red);
+            Console.WriteLine();
+        }
+
+    }
+
+}
